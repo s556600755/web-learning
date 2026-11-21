@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>Day 1 - 第2題</title>
+</head>
+<body>
+  <ul id="list"></ul>
+
+  <script>
+  async function loadUsers() {
+    const res = await fetch("https://jsonplaceholder.typicode.com/users");
+    const users = await res.json();
+
+    // 第2題：只保留城市名稱含 "South" 的人
+    const southUsers = users.filter(user => user.address.city.includes("South"));
+
+    const list = document.getElementById("list");
+    southUsers.forEach(user => {
+      list.innerHTML += `<li>${user.name}（${user.email}）－ ${user.address.city}</li>`;
+    });
+  }
+
+  loadUsers();
+  </script>
+</body>
+</html>

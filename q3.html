@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Day 1 - 第3題</title>
+</head>
+
+<body>
+  <!-- 第3題：按下按鈕才載入資料 -->
+  <button id="loadBtn">載入資料</button>
+  <p id="loading" hidden>載入中...</p>
+  <p id="error" hidden>載入失敗，請稍後再試</p>
+  <ul id="list"></ul>
+
+  <script>
+    const btn = document.getElementById("loadBtn");
+    const loading = document.getElementById("loading");
+    const errorMsg = document.getElementById("error");
+    const list = document.getElementById("list");
+
+    async function loadUsers() {
+      // 開始載入：顯示「載入中...」、按鈕不能按、清掉上一次的結果
+      loading.hidden = false;
+      btn.disabled = true;
+      errorMsg.hidden = true;
+      list.innerHTML = "";
+
+      try {
+        const res = await fetch("https://jsonplaceholder.typicode.com/userss");
+
+        // 伺服器有回應但狀態碼是錯誤（例如 404、500），fetch 不會自己丟錯，要手動檢查
+        if (!res.ok) {
+          throw new Error("伺服器回應錯誤：" + res.status);
+        }
+
+        const users = await res.json();
+        const bizUsers = users.filter(user => user.email.endsWith(".biz"));
+
+        bizUsers.forEach(user => {
+          list.innerHTML += `<li>${user.name}（${user.email}）</li>`;
+        });
+         loading.hidden = true;
+        btn.disabled = false;
+      } catch (error) {
+        console.error(error);      // Console 留給自己看細節
+        errorMsg.hidden = false;   // 網頁上顯示給使用者看
+      } finally {
+        // 不管成功或失敗都會執行：隱藏「載入中...」、按鈕恢復
+       
+      }
+    }
+
+    btn.addEventListener("click", loadUsers);
+  </script>
+</body>
+
+</html>
