@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <!-- 讓手機正確縮放顯示 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>府城小吃點餐</title>
+  <!-- Bootstrap 5 CSS（CDN） -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #fdf8f3; }
+    .menu-card .price { color: #c0392b; font-weight: bold; font-size: 1.2rem; }
+    /* 購物車按鈕上的數量徽章 */
+    .cart-toggle { position: relative; }
+    .cart-toggle .badge { position: absolute; top: -6px; right: -8px; }
+  </style>
+</head>
+<body>
+  <!-- 頁首：左邊店名，右上角是購物車漢堡按鈕；sticky-top 讓它捲動時固定在上方 -->
+  <nav class="navbar navbar-dark bg-danger sticky-top mb-4 shadow-sm">
+    <div class="container">
+      <span class="navbar-brand fw-bold">府城小吃</span>
+      <button class="btn btn-outline-light cart-toggle d-flex align-items-center gap-2" type="button"
+              data-bs-toggle="offcanvas" data-bs-target="#cart-offcanvas"
+              aria-controls="cart-offcanvas" aria-label="開啟購物車">
+        <!-- 購物車圖示（Bootstrap Icons 的 cart3，直接內嵌 SVG） -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .49.598l-1 5a.5.5 0 0 1-.465.401l-9.397.472L4.415 11H13a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l.84 4.479 9.144-.459L13.89 4zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+        </svg>
+        <span>購物車</span>
+        <span id="cart-count" class="badge rounded-pill bg-warning text-dark d-none">0</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 菜單區：佔滿整個頁面寬度 -->
+  <div class="container mb-5">
+    <h2 class="h4 mb-3">菜單</h2>
+    <div id="menu-list" class="row g-3"></div>
+  </div>
+
+  <!-- 頁尾 -->
+  <footer class="text-center text-muted small py-3 border-top">
+    本網站為練習作品
+  </footer>
+
+  <!-- 購物車側邊欄（Bootstrap Offcanvas），從右邊滑出 -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cart-offcanvas" aria-labelledby="cart-offcanvas-title">
+    <div class="offcanvas-header border-bottom">
+      <h5 class="offcanvas-title fw-bold" id="cart-offcanvas-title">購物車</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="關閉"></button>
+    </div>
+    <!-- 購物車品項清單 -->
+    <div class="offcanvas-body">
+      <div id="cart-list"></div>
+    </div>
+    <!-- 最底部：總金額與送出訂單按鈕 -->
+    <div class="border-top p-3">
+      <div class="d-flex justify-content-between fw-bold fs-5 mb-2">
+        <span>總金額</span>
+        <span id="cart-total">$0</span>
+      </div>
+      <!-- 用餐方式：內用 / 外帶（必選） -->
+      <div class="mb-2">
+        <div class="form-label fw-semibold mb-1">用餐方式</div>
+        <div class="btn-group w-100" role="group" aria-label="選擇用餐方式">
+          <input type="radio" class="btn-check" name="order-type" id="type-dine-in" value="dine-in" autocomplete="off">
+          <label class="btn btn-outline-danger" for="type-dine-in">內用</label>
+          <input type="radio" class="btn-check" name="order-type" id="type-takeout" value="takeout" autocomplete="off">
+          <label class="btn btn-outline-danger" for="type-takeout">外帶</label>
+        </div>
+        <div id="type-error" class="invalid-feedback d-block d-none">請選擇內用或外帶</div>
+      </div>
+      <!-- 桌號欄位：只有選「內用」時才顯示 -->
+      <div id="table-field" class="mb-2 d-none">
+        <label for="table-number" class="form-label fw-semibold mb-1">桌號（1–20）</label>
+        <input type="number" class="form-control" id="table-number" min="1" max="20" step="1"
+               inputmode="numeric" placeholder="請輸入桌號">
+        <div class="invalid-feedback">請輸入 1 到 20 的桌號</div>
+      </div>
+      <div id="cart-warning" class="alert alert-warning py-2 d-none">
+        購物車是空的，請先加入餐點再送出。
+      </div>
+      <button type="button" id="submit-btn" class="btn btn-danger w-100 btn-lg">送出訂單</button>
+    </div>
+  </div>
+
+  <!-- 加入購物車確認視窗（Bootstrap Modal） -->
+  <div class="modal fade" id="add-modal" tabindex="-1" aria-labelledby="add-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="add-modal-title">確認加入購物車</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <span class="fw-bold fs-5" id="modal-dish-name"></span>
+            <span class="text-danger fw-bold fs-5" id="modal-dish-price"></span>
+          </div>
+          <p class="text-muted small" id="modal-dish-desc"></p>
+          <label for="modal-note" class="form-label">備註（選填）</label>
+          <textarea class="form-control" id="modal-note" rows="2" maxlength="100"
+                    placeholder="例如：不要辣、少油、不要蔥"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-danger" id="modal-confirm">確認加入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 訂單摘要視窗（送出訂單後顯示） -->
+  <div class="modal fade" id="summary-modal" tabindex="-1" aria-labelledby="summary-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="summary-modal-title">訂單已送出</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body" id="order-summary-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success" data-bs-dismiss="modal">好的</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS（含 Popper，Modal 與 Offcanvas 需要用到） -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ===== 分類清單：決定菜單上大項的顯示順序 =====
+    const categories = ['熱炒', '青菜', '點心'];
+
+    // ===== 菜單資料：每筆有 id、category（分類）、name、desc、price =====
+    const menu = [
+      // 熱炒
+      { id: 1,  category: '熱炒', name: '三杯雞',     desc: '麻油、醬油、米酒各一杯，九層塔爆香，醬汁濃郁下飯', price: 180 },
+      { id: 2,  category: '熱炒', name: '宮保雞丁',   desc: '雞腿肉搭配乾辣椒與花生，香辣微甜',               price: 170 },
+      { id: 3,  category: '熱炒', name: '鹽酥蝦',     desc: '鮮蝦酥炸後以椒鹽蒜末拌炒，連殼都香脆',           price: 220 },
+      { id: 4,  category: '熱炒', name: '客家小炒',   desc: '豬肉、魷魚、豆干與芹菜大火快炒，鹹香夠味',       price: 180 },
+      { id: 5,  category: '熱炒', name: '蒼蠅頭',     desc: '韭菜花、絞肉、豆豉與辣椒同炒，最佳配飯菜',       price: 150 },
+      // 青菜
+      { id: 6,  category: '青菜', name: '炒高麗菜',   desc: '當季高麗菜清炒，加入蒜片與少許蝦米，清甜爽脆',   price: 100 },
+      { id: 7,  category: '青菜', name: '蒜炒空心菜', desc: '空心菜大火快炒，蒜香撲鼻，口感翠綠',             price: 100 },
+      { id: 8,  category: '青菜', name: '炒地瓜葉',   desc: '嫩地瓜葉清炒，滑順不苦澀',                       price: 90 },
+      { id: 9,  category: '青菜', name: '塔香茄子',   desc: '茄子過油保色，九層塔與醬汁拌炒，軟嫩入味',       price: 120 },
+      { id: 10, category: '青菜', name: '燙A菜',      desc: '清燙A菜淋上肉燥與油蔥，簡單又古早味',            price: 80 },
+      // 點心
+      { id: 11, category: '點心', name: '蘿蔔糕',     desc: '手工蘿蔔糕煎得外酥內軟，附蒜蓉醬油膏',           price: 50 },
+      { id: 12, category: '點心', name: '炸湯圓',     desc: '芝麻內餡湯圓酥炸，外脆內Q會爆漿',                price: 60 },
+      { id: 13, category: '點心', name: '芋頭酥',     desc: '層層酥皮包入綿密芋泥，香甜不膩',                 price: 45 },
+      { id: 14, category: '點心', name: '杏仁豆腐',   desc: '自製杏仁豆腐，搭配糖水與水果丁，冰涼滑順',       price: 40 },
+      { id: 15, category: '點心', name: '紅豆湯',     desc: '紅豆慢火熬煮至綿密鬆軟，甜度適中',               price: 40 }
+    ];
+
+    // ===== 購物車資料：每筆為 { lineId, id, name, price, qty, note } =====
+    // 同一道菜若備註不同，會分成不同的一行，所以用 lineId 來辨識每一行
+    let cart = [];
+    let nextLineId = 1;
+
+    // 目前在確認視窗中準備加入的餐點 id
+    let pendingDishId = null;
+
+    // 取得常用的 DOM 元素
+    const menuListEl   = document.getElementById('menu-list');
+    const cartListEl   = document.getElementById('cart-list');
+    const cartTotalEl  = document.getElementById('cart-total');
+    const cartCountEl  = document.getElementById('cart-count');
+    const warningEl    = document.getElementById('cart-warning');
+    const submitBtn    = document.getElementById('submit-btn');
+    const summaryBody  = document.getElementById('order-summary-body');
+    const modalEl      = document.getElementById('add-modal');
+    const modalNoteEl  = document.getElementById('modal-note');
+    const typeErrorEl  = document.getElementById('type-error');
+    const tableFieldEl = document.getElementById('table-field');
+    const tableInputEl = document.getElementById('table-number');
+
+    // 建立 Bootstrap 元件實例，之後用程式控制開關
+    const addModal     = new bootstrap.Modal(modalEl);
+    const summaryModal = new bootstrap.Modal(document.getElementById('summary-modal'));
+    const cartOffcanvas = new bootstrap.Offcanvas(document.getElementById('cart-offcanvas'));
+
+    // 把金額格式化成 $1,234 的樣子
+    function formatPrice(n) {
+      return '$' + n.toLocaleString('zh-TW');
+    }
+
+    // 跳脫 HTML 特殊字元，避免使用者輸入的內容被當成 HTML 執行
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    // renderMenu()：依照 categories 的順序，把 menu 陣列分組，
+    // 每個大項先畫一個標題，再畫出該分類底下的餐點卡片
+    function renderMenu() {
+      menuListEl.innerHTML = categories.map(cat => `
+        <div class="col-12 ${cat === categories[0] ? '' : 'mt-4'}">
+          <h3 class="h5 border-start border-4 border-danger ps-2 mb-0">${cat}</h3>
+        </div>
+        ${menu.filter(item => item.category === cat).map(renderMenuCard).join('')}
+      `).join('');
+    }
+
+    // renderMenuCard()：產生單一道菜的卡片 HTML（名稱、介紹、價錢、加入購物車按鈕）
+    function renderMenuCard(item) {
+      return `
+        <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+          <div class="card h-100 menu-card shadow-sm">
+            <div class="card-body d-flex flex-column">
+              <h4 class="card-title h6 fw-bold">${item.name}</h4>
+              <p class="card-text text-muted small flex-grow-1">${item.desc}</p>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="price">${formatPrice(item.price)}</span>
+                <button class="btn btn-outline-danger btn-sm" data-action="add" data-id="${item.id}">
+                  加入購物車
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // renderCart()：依照 cart 陣列畫出購物車內容、小計與總金額，
+    // 同步更新右上角購物車按鈕的數量徽章，以及送出按鈕是否可以使用
+    function renderCart() {
+      if (cart.length === 0) {
+        // 購物車空的時候顯示提示文字
+        cartListEl.innerHTML = '<p class="text-muted text-center my-3">購物車是空的</p>';
+      } else {
+        cartListEl.innerHTML = cart.map(item => `
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div class="me-2">
+              <div class="fw-semibold">${item.name}</div>
+              ${item.note ? `<div class="small text-danger">備註：${escapeHtml(item.note)}</div>` : ''}
+              <small class="text-muted">${formatPrice(item.price)} × ${item.qty} = ${formatPrice(item.price * item.qty)}</small>
+            </div>
+            <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="${item.name} 數量調整">
+              <button class="btn btn-outline-secondary" data-action="minus" data-line="${item.lineId}" aria-label="減少">−</button>
+              <span class="btn btn-light disabled px-2">${item.qty}</span>
+              <button class="btn btn-outline-secondary" data-action="plus" data-line="${item.lineId}" aria-label="增加">+</button>
+              <button class="btn btn-outline-danger" data-action="remove" data-line="${item.lineId}">移除</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // 計算總金額
+      cartTotalEl.textContent = formatPrice(getTotal());
+
+      // 更新右上角徽章：顯示總份數，購物車空的時候隱藏
+      const count = cart.reduce((sum, item) => sum + item.qty, 0);
+      cartCountEl.textContent = count;
+      cartCountEl.classList.toggle('d-none', count === 0);
+
+      // 購物車空的時候停用送出按鈕
+      submitBtn.disabled = cart.length === 0;
+      if (cart.length > 0) warningEl.classList.add('d-none');
+    }
+
+    // getTotal()：計算購物車所有品項的總金額
+    function getTotal() {
+      return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    }
+
+    // openAddModal()：按下「加入購物車」時，把餐點資訊填進確認視窗並打開它
+    function openAddModal(id) {
+      const dish = menu.find(m => m.id === id);
+      pendingDishId = id;
+      document.getElementById('modal-dish-name').textContent  = dish.name;
+      document.getElementById('modal-dish-price').textContent = formatPrice(dish.price);
+      document.getElementById('modal-dish-desc').textContent  = dish.desc;
+      modalNoteEl.value = '';   // 每次打開都清空備註
+      addModal.show();
+    }
+
+    // addToCart()：把指定 id 的餐點連同備註加入購物車；
+    // 若購物車裡已有「同一道菜且備註相同」的品項，就數量 +1，否則新增一行
+    function addToCart(id, note) {
+      const found = cart.find(item => item.id === id && item.note === note);
+      if (found) {
+        found.qty++;
+      } else {
+        const dish = menu.find(m => m.id === id);
+        cart.push({ lineId: nextLineId++, id: dish.id, name: dish.name, price: dish.price, qty: 1, note });
+      }
+      renderCart();
+    }
+
+    // changeQty()：調整購物車某一行的數量（delta 為 +1 或 -1），
+    // 數量減到 0 時自動從購物車移除
+    function changeQty(lineId, delta) {
+      const found = cart.find(item => item.lineId === lineId);
+      if (!found) return;
+      found.qty += delta;
+      if (found.qty <= 0) {
+        removeFromCart(lineId);
+        return;
+      }
+      renderCart();
+    }
+
+    // removeFromCart()：把指定的那一行整個從購物車移除
+    function removeFromCart(lineId) {
+      cart = cart.filter(item => item.lineId !== lineId);
+      renderCart();
+    }
+
+    // getOrderType()：取得目前選擇的用餐方式，回傳 'dine-in'、'takeout'，沒選則回傳 null
+    function getOrderType() {
+      const checked = document.querySelector('input[name="order-type"]:checked');
+      return checked ? checked.value : null;
+    }
+
+    // updateTableField()：依照用餐方式切換桌號欄位——內用才顯示，外帶就隱藏並清空
+    function updateTableField() {
+      const isDineIn = getOrderType() === 'dine-in';
+      tableFieldEl.classList.toggle('d-none', !isDineIn);
+      if (!isDineIn) {
+        tableInputEl.value = '';
+        tableInputEl.classList.remove('is-invalid');
+      }
+      typeErrorEl.classList.add('d-none');
+    }
+
+    // isValidTableNumber()：檢查桌號是否為 1 到 20 的整數
+    function isValidTableNumber(value) {
+      return /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 20;
+    }
+
+    // validateOrderType()：送出前檢查用餐方式與桌號，不合格就顯示錯誤並回傳 false
+    function validateOrderType() {
+      const type = getOrderType();
+      if (!type) {
+        typeErrorEl.classList.remove('d-none');
+        return false;
+      }
+      if (type === 'dine-in' && !isValidTableNumber(tableInputEl.value.trim())) {
+        tableInputEl.classList.add('is-invalid');
+        tableInputEl.focus();
+        return false;
+      }
+      return true;
+    }
+
+    // generatePickupNumber()：產生外帶用的三位數取餐號碼（100～999）
+    function generatePickupNumber() {
+      return Math.floor(Math.random() * 900) + 100;
+    }
+
+    // resetOrderType()：送出訂單後，把用餐方式、桌號恢復成未選擇的狀態
+    function resetOrderType() {
+      document.querySelectorAll('input[name="order-type"]').forEach(r => r.checked = false);
+      updateTableField();
+    }
+
+    // showSummary()：送出訂單後，把用餐方式（桌號或取餐號碼）、品項、備註與總金額
+    // 填進訂單摘要視窗並打開；orderInfo 為 { type, table, pickupNumber }
+    function showSummary(orderInfo) {
+      const rows = cart.map(item => `
+        <tr>
+          <td>${item.name}${item.note ? `<div class="small text-muted">備註：${escapeHtml(item.note)}</div>` : ''}</td>
+          <td class="text-center">${item.qty}</td>
+          <td class="text-end">${formatPrice(item.price * item.qty)}</td>
+        </tr>
+      `).join('');
+
+      // 用送出當下的時間當作訂單時間
+      const now = new Date().toLocaleString('zh-TW', { hour12: false });
+
+      // 依用餐方式顯示桌號或取餐號碼
+      const typeBlock = orderInfo.type === 'dine-in'
+        ? `<div class="text-muted small">內用</div>
+           <div class="fs-3 fw-bold">桌號 ${orderInfo.table}</div>`
+        : `<div class="text-muted small">外帶 · 取餐號碼</div>
+           <div class="display-5 fw-bold text-danger">${orderInfo.pickupNumber}</div>`;
+
+      summaryBody.innerHTML = `
+        <div class="text-center bg-light rounded p-3 mb-3">${typeBlock}</div>
+        <p class="text-muted small mb-3">下單時間：${now}</p>
+        <table class="table table-sm mb-2">
+          <thead><tr><th>品項</th><th class="text-center">數量</th><th class="text-end">小計</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="text-end fw-bold fs-5">總金額：${formatPrice(getTotal())}</div>
+        <p class="text-muted small mt-2 mb-0">感謝您的訂購！</p>
+      `;
+      summaryModal.show();
+    }
+
+    // 菜單區的點擊事件（事件委派）：按下「加入購物車」先彈出確認視窗
+    menuListEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action="add"]');
+      if (btn) openAddModal(Number(btn.dataset.id));
+    });
+
+    // 確認視窗的「確認加入」：帶著備註把餐點加入購物車，然後關閉視窗
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+      if (pendingDishId === null) return;
+      addToCart(pendingDishId, modalNoteEl.value.trim());
+      pendingDishId = null;
+      addModal.hide();
+    });
+
+    // 視窗打開後，自動把游標放到備註欄，方便直接輸入
+    modalEl.addEventListener('shown.bs.modal', () => modalNoteEl.focus());
+
+    // 購物車區的點擊事件（事件委派）：處理 +1、-1、移除
+    cartListEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const lineId = Number(btn.dataset.line);
+      if (btn.dataset.action === 'plus')   changeQty(lineId, 1);
+      if (btn.dataset.action === 'minus')  changeQty(lineId, -1);
+      if (btn.dataset.action === 'remove') removeFromCart(lineId);
+    });
+
+    // 切換內用 / 外帶時，更新桌號欄位的顯示
+    document.querySelectorAll('input[name="order-type"]').forEach(radio => {
+      radio.addEventListener('change', updateTableField);
+    });
+
+    // 桌號一有輸入就移除紅框錯誤提示
+    tableInputEl.addEventListener('input', () => tableInputEl.classList.remove('is-invalid'));
+
+    // 送出訂單：檢查購物車、用餐方式與桌號；都通過後關閉購物車、
+    // 顯示訂單摘要（內用桌號或外帶取餐號碼），再清空購物車與用餐方式
+    submitBtn.addEventListener('click', () => {
+      if (cart.length === 0) {
+        warningEl.classList.remove('d-none');
+        return;
+      }
+      if (!validateOrderType()) return;
+
+      const type = getOrderType();
+      const orderInfo = type === 'dine-in'
+        ? { type, table: Number(tableInputEl.value.trim()) }
+        : { type, pickupNumber: generatePickupNumber() };
+
+      cartOffcanvas.hide();
+      showSummary(orderInfo);
+      cart = [];
+      renderCart();
+      resetOrderType();
+    });
+
+    // 頁面載入時先畫出菜單與（空的）購物車
+    renderMenu();
+    renderCart();
+  </script>
+</body>
+</html>
